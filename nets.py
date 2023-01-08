@@ -5,6 +5,9 @@ import torch.nn.functional as F
 
 
 class MNIST_Net(nn.Module):
+    """
+    2D features extractor for MNIST.
+    """
 
     def __init__(self, in_channels: int = 1, out_channels: int = 2):
         super(MNIST_Net, self).__init__()
@@ -31,16 +34,15 @@ class MNIST_Net(nn.Module):
         return feats.view(-1, 2)
 
 
-
 class NormLinear(nn.Module):
     """
     A Linear layer that normalize weights.
     """
 
-    def __init__(self, in_channels: int = 2, use_bias: bool = False, dtype=torch.float32):
+    def __init__(self, in_channels: int = 2, out_channels: int = 10, use_bias: bool = False, dtype=torch.float32):
         super(NormLinear, self).__init__()
-        self.weight = nn.Parameter(torch.zeros([in_channels, 10], dtype=dtype))
-        self.bias = nn.Parameter(torch.zeros([10], dtype=dtype)) if use_bias else None
+        self.weight = nn.Parameter(torch.zeros([out_channels, in_channels], dtype=dtype))
+        self.bias = nn.Parameter(torch.zeros([out_channels], dtype=dtype)) if use_bias else None
         nn.init.xavier_normal_(self.weight)
 
     def forward(self, x):
@@ -56,17 +58,19 @@ class L2NormLayer(nn.Module):
         For L2-Softmax Loss, alpha should be at least log(p *(C-2)/(1-p)).
     """
 
-    def __init__(self, alpha: float = 1.0, learnable: bool = False, dtype=torch.float32):
+    def __init__(self, alpha: float = 1.0, train_alpha: bool = False, dtype=torch.float32):
         super(L2NormLayer, self).__init__()
-        if learnable:
+        if train_alpha:
             self.register_parameter("alpha", nn.Parameter(torch.tensor(alpha, dtype=dtype)))
         else:
+            alpha_low = self.lower_bound(0.9, 10)
+            assert alpha > alpha_low, f"Alpha must be at least: {alpha_low:.1f}"
             self.register_buffer("alpha", torch.tensor(alpha, dtype=dtype))
 
     def forward(self, x):
         x = self.alpha * F.normalize(x)
         return x
 
-
-def lower_bound(p, c) -> float:
-    return math.log(p * (c - 2) / (1 - p))
+    @staticmethod
+    def lower_bound(p, c) -> float:
+        return math.log(p * (c - 2) / (1 - p))

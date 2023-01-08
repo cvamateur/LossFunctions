@@ -1,4 +1,9 @@
-import os
+"""
+Train MNIST with Original Softmax Loss
+
+Structure:
+    extractor -> nn.Linear -> SoftmaxLoss
+"""
 import torch
 
 from tqdm import tqdm
@@ -8,10 +13,9 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor, Normalize, Compose
 
-from common import get_softmax_args
+from common import get_softmax_args, FeatureVisualizer
 from nets import MNIST_Net
 from losses import SoftmaxLoss
-from visualize import FeatureVisualizer
 
 
 use_gpu = torch.cuda.is_available()
@@ -25,7 +29,7 @@ def main(args):
     transform = Compose([ToTensor(), Normalize([0.1307], [0.3081])])
     ds_train = MNIST("./data", True, transform, download=args.download)
     ds_valid = MNIST("./data", False, transform, download=args.download)
-    kwargs = {"batch_size": args.batch_size, "num_workers": args.workers, "drop_last": True, "pin_memory": use_gpu}
+    kwargs = {"batch_size": args.batch_size, "num_workers": args.num_workers, "drop_last": True, "pin_memory": use_gpu}
     ds_train = DataLoader(ds_train, shuffle=True, **kwargs)
     ds_valid = DataLoader(ds_valid, shuffle=False, **kwargs)
 
@@ -51,16 +55,17 @@ def main(args):
     ################
     # Visualizer
     ################
-    visualizer = FeatureVisualizer("SoftmaxLoss", len(ds_train) * args.batch_size, args.batch_size)
+    vis_train = FeatureVisualizer("SoftmaxLoss-train", len(ds_train), args.batch_size, dirname="Softmax")
+    vis_valid = FeatureVisualizer("SoftmaxLoss-valid", len(ds_valid), args.batch_size, dirname="Softmax")
 
     #################
     # Train loop
     #################
     model = (extractor, classifier)
     for epoch in range(1, args.num_epochs + 1):
-        train_step(epoch, model, ds_train, criterion, optimizer, visualizer, args)
+        train_step(epoch, model, ds_train, criterion, optimizer, vis_train, args)
         if epoch >= args.eval_epoch:
-            valid_step(epoch, model, ds_valid, criterion, args)
+            valid_step(epoch, model, ds_valid, criterion, vis_valid, args)
         schedular.step()
 
 
@@ -104,14 +109,16 @@ def train_step(epoch, model, dataset, criterion, optimizer, visualizer, args):
         # Record Features
         feats = feats.detach().to("cpu").numpy()
         preds = preds.detach().to("cpu").numpy()
-        visualizer.record(feats, preds)
+        if epoch % args.vis_freq == 0:
+            visualizer.record(feats, preds)
 
     progress_bar.update(len(dataset) - progress_bar.n)
     if epoch % args.vis_freq == 0:
         visualizer.save_fig(epoch)
 
 
-def valid_step(epoch, model, dataset, criterion, args):
+@torch.no_grad()
+def valid_step(epoch, model, dataset, criterion, visualizer, args):
     model[0].eval()
     model[1].eval()
 
@@ -123,15 +130,17 @@ def valid_step(epoch, model, dataset, criterion, args):
         labels = labels.to(device, non_blocking=True)
 
         # forward
-        with torch.no_grad():
-            feats =  model[0](images)
-            preds = model[1](feats)
-            loss = criterion(preds, labels)
+        feats =  model[0](images)
+        logits = model[1](feats)
+        loss = criterion(logits, labels)
 
-        # matrics
+        # loss
         total_loss += loss.item() / len(dataset)
         avg_loss = total_loss * len(dataset) / (i + 1)
-        total_correct += torch.eq(preds.argmax(dim=1), labels).sum().item()
+
+        # metric
+        preds = logits.argmax(dim=1)
+        total_correct += torch.eq(preds, labels).sum().item()
         acc = total_correct / ((i + 1) * args.batch_size) * 100
 
         # Log info
@@ -140,13 +149,17 @@ def valid_step(epoch, model, dataset, criterion, args):
         if i % args.log_freq == 0:
             progress_bar.update(args.log_freq)
 
-    progress_bar.update(len(dataset) - progress_bar.n)
+        # Record Features
+        feats = feats.to("cpu").numpy()
+        preds = preds.to("cpu").numpy()
+        if epoch % args.vis_freq == 0:
+            visualizer.record(feats, preds)
 
+    progress_bar.update(len(dataset) - progress_bar.n)
+    if epoch % args.vis_freq == 0:
+        visualizer.save_fig(epoch)
 
 
 if __name__ == '__main__':
     args = get_softmax_args()
-
-    os.makedirs("./ckpt", exist_ok=True)
-    os.makedirs("tmp", exist_ok=True)
     main(args)

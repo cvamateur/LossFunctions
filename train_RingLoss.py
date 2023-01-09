@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor, Normalize, Compose
 
-from common import get_ring_loss_args, FeatureVisualizerV2
+from common import get_ring_loss_args, FeatureVisualizer
 from nets import MNIST_Net, NormLinear
 from losses import SoftmaxLoss, RingLoss
 
@@ -57,7 +57,8 @@ def main(args):
     ################
     # Visualizer
     ################
-    visualizer = FeatureVisualizerV2("L2-SoftmaxLoss", args.batch_size, len(ds_train), len(ds_valid), args.dark_theme)
+    visualizer = FeatureVisualizer("RingLoss", len(ds_train), len(ds_valid), args.batch_size,
+                                   args.eval_epoch, args.vis_freq, args.dark_theme)
 
     #################
     # Train loop
@@ -66,6 +67,7 @@ def main(args):
         train_step(epoch, model, ds_train, criterion, optimizer, visualizer, args)
         if epoch >= args.eval_epoch:
             valid_step(epoch, model, ds_valid, criterion, visualizer, args)
+        visualizer.save_fig(epoch, radius=args.R, loss_weight=args.loss_weight)
         schedular.step()
 
 
@@ -114,12 +116,9 @@ def train_step(epoch, model, dataset, criterion, optimizer, visualizer, args):
         # Record Features
         feats = feats.detach().to("cpu").numpy()
         preds = preds.detach().to("cpu").numpy()
-        if epoch % args.vis_freq == 0:
-            visualizer.record(feats, preds)
+        visualizer.record(epoch, feats, preds)
 
     progress_bar.update(len(dataset) - progress_bar.n)
-    if epoch % args.vis_freq == 0:
-        visualizer.save_fig(epoch, init_R=args.R, loss_weight=args.loss_weight)
 
 
 @torch.no_grad()
@@ -162,12 +161,9 @@ def valid_step(epoch, model, dataset, criterion, visualizer, args):
         # Record Features
         feats = feats.to("cpu").numpy()
         preds = preds.to("cpu").numpy()
-        if epoch % args.vis_freq == 0:
-            visualizer.record(feats, preds)
+        visualizer.record(epoch, feats, preds)
 
     progress_bar.update(len(dataset) - progress_bar.n)
-    if epoch % args.vis_freq == 0:
-        visualizer.save_fig(epoch, init_R=args.R, loss_weight=args.loss_weight)
 
 
 if __name__ == '__main__':

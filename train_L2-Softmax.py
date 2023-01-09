@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor, Normalize, Compose
 
-from common import get_l2_softmax_args, FeatureVisualizerV2
+from common import get_l2_softmax_args, FeatureVisualizer
 from nets import MNIST_Net, L2NormLayer
 from losses import SoftmaxLoss
 
@@ -57,7 +57,8 @@ def main(args):
     ################
     # Visualizer
     ################
-    visualizer = FeatureVisualizerV2("L2-SoftmaxLoss", args.batch_size, len(ds_train), len(ds_valid), args.dark_theme)
+    visualizer = FeatureVisualizer("L2-SoftmaxLoss", len(ds_train), len(ds_valid), args.batch_size,
+                                   args.eval_epoch, args.vis_freq, args.dark_theme)
 
     #################
     # Train loop
@@ -67,6 +68,7 @@ def main(args):
         train_step(epoch, model, ds_train, criterion, optimizer, visualizer, args)
         if epoch >= args.eval_epoch:
             valid_step(epoch, model, ds_valid, criterion, visualizer, args)
+        visualizer.save_fig(epoch, init_r=args.alpha, trainable=args.trainable)
         schedular.step()
 
 
@@ -76,7 +78,7 @@ def train_step(epoch, model, dataset, criterion, optimizer, visualizer, args):
 
     total_loss: float = 0.0
     total_correct: int = 0
-    progress_bar = tqdm(dataset, desc=f"Train: {epoch}/{args.num_epochs}")
+    progress_bar = tqdm(dataset, desc=f"Training  : {epoch}/{args.num_epochs}")
     for i, (images, labels) in enumerate(dataset):
         if use_gpu:
             images = images.to(device, non_blocking=True)
@@ -111,12 +113,9 @@ def train_step(epoch, model, dataset, criterion, optimizer, visualizer, args):
         # Record Features
         feats = feats.detach().to("cpu").numpy()
         preds = preds.detach().to("cpu").numpy()
-        if epoch % args.vis_freq == 0:
-            visualizer.record(feats, preds)
+        visualizer.record(epoch, feats, preds)
 
     progress_bar.update(len(dataset) - progress_bar.n)
-    if epoch % args.vis_freq == 0:
-        visualizer.save_fig(epoch, alpha=args.alpha, trainable=args.trainable)
 
 
 @torch.no_grad()
@@ -126,7 +125,7 @@ def valid_step(epoch, model, dataset, criterion, visualizer, args):
 
     total_loss: float = 0.0
     total_correct: int = 0
-    progress_bar = tqdm(dataset, desc=f"Validate: {epoch}/{args.num_epochs}")
+    progress_bar = tqdm(dataset, desc=f"Validation: {epoch}/{args.num_epochs}")
     for i, (images, labels) in enumerate(dataset):
         images = images.to(device, non_blocking=True)
         labels = labels.to(device, non_blocking=True)
@@ -155,14 +154,9 @@ def valid_step(epoch, model, dataset, criterion, visualizer, args):
         # Record Features
         feats = feats.to("cpu").numpy()
         preds = preds.to("cpu").numpy()
-        if epoch % args.vis_freq == 0:
-            visualizer.record(feats, preds)
+        visualizer.record(epoch, feats, preds)
 
     progress_bar.update(len(dataset) - progress_bar.n)
-    if epoch % args.vis_freq == 0:
-        visualizer.save_fig(epoch, alpha=args.alpha, trainable=args.trainable)
-
-
 
 
 if __name__ == '__main__':

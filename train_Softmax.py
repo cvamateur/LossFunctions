@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor, Normalize, Compose
 
-from common import get_softmax_args, FeatureVisualizer, FeatureVisualizerV2
+from common import get_softmax_args, FeatureVisualizer
 from nets import MNIST_Net
 from losses import SoftmaxLoss
 
@@ -55,7 +55,8 @@ def main(args):
     ################
     # Visualizer
     ################
-    visualizer = FeatureVisualizerV2("SoftmaxLoss", args.batch_size, len(ds_train), len(ds_valid), args.dark_theme)
+    visualizer = FeatureVisualizer("SoftmaxLoss", len(ds_train), len(ds_valid), args.batch_size,
+                                   args.eval_epoch, args.vis_freq,  args.dark_theme)
 
     #################
     # Train loop
@@ -65,8 +66,7 @@ def main(args):
         train_step(epoch, model, ds_train, criterion, optimizer, visualizer, args)
         if epoch >= args.eval_epoch:
             valid_step(epoch, model, ds_valid, criterion, visualizer, args)
-            if epoch % args.vis_freq == 0:
-                visualizer.save_fig(epoch)
+        visualizer.save_fig(epoch)
         schedular.step()
 
 
@@ -110,8 +110,7 @@ def train_step(epoch, model, dataset, criterion, optimizer, visualizer, args):
         # Record Features
         feats = feats.detach().to("cpu").numpy()
         preds = preds.detach().to("cpu").numpy()
-        if epoch % args.vis_freq == 0:
-            visualizer.record(feats, preds)
+        visualizer.record(epoch, feats, preds)
 
     progress_bar.update(len(dataset) - progress_bar.n)
 
@@ -151,8 +150,7 @@ def valid_step(epoch, model, dataset, criterion, visualizer, args):
         # Record Features
         feats = feats.to("cpu").numpy()
         preds = preds.to("cpu").numpy()
-        if epoch % args.vis_freq == 0:
-            visualizer.record(feats, preds)
+        visualizer.record(epoch, feats, preds)
 
     progress_bar.update(len(dataset) - progress_bar.n)
 

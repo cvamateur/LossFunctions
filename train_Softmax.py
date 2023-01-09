@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor, Normalize, Compose
 
-from common import get_softmax_args, FeatureVisualizer
+from common import get_softmax_args, FeatureVisualizer, FeatureVisualizerV2
 from nets import MNIST_Net
 from losses import SoftmaxLoss
 
@@ -55,17 +55,18 @@ def main(args):
     ################
     # Visualizer
     ################
-    vis_train = FeatureVisualizer("SoftmaxLoss-train", len(ds_train), args.batch_size, dirname="Softmax")
-    vis_valid = FeatureVisualizer("SoftmaxLoss-valid", len(ds_valid), args.batch_size, dirname="Softmax")
+    visualizer = FeatureVisualizerV2("SoftmaxLoss", args.batch_size, len(ds_train), len(ds_valid), args.dark_theme)
 
     #################
     # Train loop
     #################
     model = (extractor, classifier)
     for epoch in range(1, args.num_epochs + 1):
-        train_step(epoch, model, ds_train, criterion, optimizer, vis_train, args)
+        train_step(epoch, model, ds_train, criterion, optimizer, visualizer, args)
         if epoch >= args.eval_epoch:
-            valid_step(epoch, model, ds_valid, criterion, vis_valid, args)
+            valid_step(epoch, model, ds_valid, criterion, visualizer, args)
+            if epoch % args.vis_freq == 0:
+                visualizer.save_fig(epoch)
         schedular.step()
 
 
@@ -113,8 +114,6 @@ def train_step(epoch, model, dataset, criterion, optimizer, visualizer, args):
             visualizer.record(feats, preds)
 
     progress_bar.update(len(dataset) - progress_bar.n)
-    if epoch % args.vis_freq == 0:
-        visualizer.save_fig(epoch)
 
 
 @torch.no_grad()
@@ -130,7 +129,7 @@ def valid_step(epoch, model, dataset, criterion, visualizer, args):
         labels = labels.to(device, non_blocking=True)
 
         # forward
-        feats =  model[0](images)
+        feats = model[0](images)
         logits = model[1](feats)
         loss = criterion(logits, labels)
 
@@ -156,8 +155,7 @@ def valid_step(epoch, model, dataset, criterion, visualizer, args):
             visualizer.record(feats, preds)
 
     progress_bar.update(len(dataset) - progress_bar.n)
-    if epoch % args.vis_freq == 0:
-        visualizer.save_fig(epoch)
+
 
 
 if __name__ == '__main__':

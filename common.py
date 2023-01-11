@@ -12,8 +12,8 @@ def get_common_parser(desc: str = "MNIST Training"):
     parser.add_argument("--download", action="store_true", help="Download MNIST dataset")
     parser.add_argument("--dark-theme", action="store_true", help="Pictures background will be black")
     parser.add_argument("--log-freq", type=int, default=50, help="Logging frequency")
-    parser.add_argument("--vis-freq", type=int, default=200, help="Step size to visualize")
-    parser.add_argument("--eval-epoch", type=int, default=100, help="Evaluation and visualization start at this epoch")
+    parser.add_argument("--vis-freq", type=int, default=2, help="Step size to visualize")
+    parser.add_argument("--eval-epoch", type=int, default=5, help="Evaluation and visualization start at this epoch")
     parser.add_argument("--num-workers", type=int, default=4, help="Number workers for dataset")
 
     # Model configurations
@@ -62,7 +62,9 @@ class FeatureVisualizer(object):
                  batch_size: int,
                  start_epoch: int = 100,
                  frequency: int = 100,
+                 use_bias: bool = False,
                  dark_theme: bool = False):
+        if use_bias: name += "_bias"
         self.root = os.path.join("./pics", name)
         self.num_train = train_batches * batch_size
         self.num_valid = valid_batches * batch_size
@@ -97,7 +99,7 @@ class FeatureVisualizer(object):
                 ax.set_aspect("equal")
                 self._save_fig(ax, self.features, self.labels, split="Training")
             else:
-                fig, axes = plt.subplots(1, 2, sharex='all', sharey="all", layout="tight", dpi=300)
+                fig, axes = plt.subplots(1, 2, sharex='all', sharey="all", layout="tight", dpi=100)
                 feats_train = self.features[:self.num_train]
                 label_train = self.labels[:self.num_train]
                 feats_valid = self.features[self.num_train:]

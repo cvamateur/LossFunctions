@@ -155,7 +155,6 @@ def valid_step(epoch, model, dataset, criterion, visualizer, args):
     progress_bar.update(len(dataset) - progress_bar.n)
 
 
-
 if __name__ == '__main__':
     args = get_softmax_args()
     main(args)

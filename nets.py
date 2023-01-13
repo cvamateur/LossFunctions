@@ -2,6 +2,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.linalg as LA
 
 
 class MNIST_Net(nn.Module):
@@ -39,10 +40,10 @@ class NormLinear(nn.Module):
     A Linear layer that normalize weights.
     """
 
-    def __init__(self, in_channels: int = 2, out_channels: int = 10, use_bias: bool = False, dtype=torch.float32):
+    def __init__(self, in_features: int, out_features: int, use_bias: bool = False, dtype=None, device=None):
         super(NormLinear, self).__init__()
-        self.weight = nn.Parameter(torch.zeros([out_channels, in_channels], dtype=dtype))
-        self.bias = nn.Parameter(torch.zeros([out_channels], dtype=dtype)) if use_bias else None
+        self.weight = nn.Parameter(torch.zeros([out_features, in_features], dtype=dtype, device=device))
+        self.bias = nn.Parameter(torch.zeros([out_features], dtype=dtype, device=device)) if use_bias else None
         nn.init.xavier_normal_(self.weight)
 
     def forward(self, x):
@@ -74,3 +75,73 @@ class L2NormLayer(nn.Module):
     @staticmethod
     def lower_bound(p, c) -> float:
         return math.log(p * (c - 2) / (1 - p))
+
+
+class L_SoftmaxLinear(nn.Module):
+    """
+    Refer to paper [Large-Margin Softmax Loss for Convolutional Neural Networks]
+    (https://arxiv.org/pdf/1612.02295.pdf).
+
+
+    """
+
+    def __init__(self, in_features: int, out_features: int, margin: int = 1, dtype=None, device=None):
+        super().__init__()
+        if dtype is None: dtype = torch.float32
+        if device is None: device = torch.device("cpu")
+        self.weight = nn.Parameter(torch.randn([out_features, in_features], dtype=dtype, device=device))
+        self.bias = None
+        torch.nn.init.xavier_normal_(self.weight)
+
+        # binomial coefficients: +C_m^0, -C_m^2, +C_m^4, ...
+        Cm_2n = torch.tensor([math.comb(margin, k) for k in range(0, margin + 1, 2)], dtype=dtype, device=device)
+        Cm_2n[1::2].mul_(-1.0)
+        pow_cos = torch.tensor([margin - k for k in range(0, margin + 1, 2)], dtype=dtype, device=device)
+        pow_sin = torch.tensor([k for k in range(1 + margin // 2)])
+        self.register_buffer("margin", torch.tensor([margin], dtype=dtype, device=device))
+        self.register_buffer("Cm_2n", Cm_2n)
+        self.register_buffer("pow_cos", pow_cos)
+        self.register_buffer("pow_sin", pow_sin)
+        self._beta = 100
+
+    def forward(self, feats, targets=None):
+        if self.training and targets is None:
+            raise RuntimeError("targets is None while module in training phase")
+
+        if targets is None:
+            return F.linear(feats, self.weight)
+
+        N = feats.size(0)
+        indices = feats.new_tensor(range(N), dtype=torch.int64)
+        logits = F.linear(feats, self.weight)                       # [N, C]
+        logits_of_target = logits[indices, targets]                 # [N]
+
+        w_norm = LA.norm(self.weight, dim=1)[targets]               # [N]
+        f_norm = LA.norm(feats, dim=1)                              # [N]
+        wf = w_norm * f_norm
+        cos_theta = logits_of_target / wf                           # [N]
+        cos_theta = torch.clamp(cos_theta, min=-1.0, max=1.0)
+        cos_m_theta = self.calculate_cos_m_theta(cos_theta)         # [N]
+        k = self.find_k(cos_theta)                                  # [N]
+
+        # Equation 8 in paper
+        logits_of_target_new = wf * (torch.pow(-1.0, k) * cos_m_theta - 2.0 * k)
+        logits[indices, targets] = (logits_of_target_new + self._beta * logits_of_target) / (1 + self._beta)
+        self._beta *= 0.99
+        return logits
+
+    def calculate_cos_m_theta(self, cos_theta):
+        """
+        Equation 7 in paper.
+        """
+        cos_theta = cos_theta.view(-1, 1)
+        sin_theta = 1.0 - torch.square(cos_theta)                   # [N, 1]
+        cos_power_m_2n = torch.pow(cos_theta, self.pow_cos)         # [N, n]
+        sin_power_n = torch.pow(sin_theta, self.pow_sin)            # [N, n]
+        cos_m_theta = torch.sum(self.Cm_2n * cos_power_m_2n * sin_power_n, dim=1)
+        return cos_m_theta
+
+    def find_k(self, cos_theta):
+        theta = torch.acos(cos_theta)
+        k = torch.floor(theta * self.margin / math.pi).detach()
+        return k

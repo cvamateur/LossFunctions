@@ -35,7 +35,7 @@ class SoftmaxLoss(nn.Module):
 class RingLoss(nn.Module):
     """
     Refer to paper [Ring loss: Convex Feature Normalization for Face Recognition]
-    (https://arxiv.org/abs/1803.00130).
+    (https://arxiv.org/pdf/1803.00130.pdf).
 
     This loss accepts a 2D Tensor of shape [N, D] as features. Returns ring-loss
     which plays a role as an auxiliary loss that can be used together with SoftmaxLoss,

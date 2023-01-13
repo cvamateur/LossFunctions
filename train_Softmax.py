@@ -56,7 +56,7 @@ def main(args):
     # Visualizer
     ################
     visualizer = FeatureVisualizer("SoftmaxLoss", len(ds_train), len(ds_valid), args.batch_size,
-                                   args.eval_epoch, args.vis_freq,  args.dark_theme)
+                                   args.eval_epoch, args.vis_freq, args.use_bias, args.dark_theme)
 
     #################
     # Train loop
@@ -66,7 +66,7 @@ def main(args):
         train_step(epoch, model, ds_train, criterion, optimizer, visualizer, args)
         if epoch >= args.eval_epoch:
             valid_step(epoch, model, ds_valid, criterion, visualizer, args)
-        visualizer.save_fig(epoch)
+        visualizer.save_fig(epoch, dpi=args.dpi)
         schedular.step()
 
 
@@ -76,7 +76,7 @@ def train_step(epoch, model, dataset, criterion, optimizer, visualizer, args):
 
     total_loss: float = 0.0
     total_correct: int = 0
-    progress_bar = tqdm(dataset, desc=f"Train: {epoch}/{args.num_epochs}")
+    progress_bar = tqdm(dataset, desc=f"Training  : {epoch}/{args.num_epochs}")
     for i, (images, labels) in enumerate(dataset):
         if use_gpu:
             images = images.to(device, non_blocking=True)
@@ -122,7 +122,7 @@ def valid_step(epoch, model, dataset, criterion, visualizer, args):
 
     total_loss: float = 0.0
     total_correct: int = 0
-    progress_bar = tqdm(dataset, desc=f"Validate: {epoch}/{args.num_epochs}")
+    progress_bar = tqdm(dataset, desc=f"Validation: {epoch}/{args.num_epochs}")
     for i, (images, labels) in enumerate(dataset):
         images = images.to(device, non_blocking=True)
         labels = labels.to(device, non_blocking=True)

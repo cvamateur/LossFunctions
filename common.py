@@ -12,9 +12,10 @@ def get_common_parser(desc: str = "MNIST Training"):
     parser.add_argument("--download", action="store_true", help="Download MNIST dataset")
     parser.add_argument("--dark-theme", action="store_true", help="Pictures background will be black")
     parser.add_argument("--log-freq", type=int, default=50, help="Logging frequency")
-    parser.add_argument("--vis-freq", type=int, default=2, help="Step size to visualize")
-    parser.add_argument("--eval-epoch", type=int, default=5, help="Evaluation and visualization start at this epoch")
+    parser.add_argument("--vis-freq", type=int, default=200, help="Step size to visualize")
+    parser.add_argument("--eval-epoch", type=int, default=100, help="Evaluation and visualization start at this epoch")
     parser.add_argument("--num-workers", type=int, default=4, help="Number workers for dataset")
+    parser.add_argument("--dpi", type=int, default=160, help="DPI of the saved pictures")
 
     # Model configurations
     parser.add_argument("--use-bias", action="store_true", help="Use bias on last FC layer.")
@@ -41,10 +42,24 @@ def get_l2_softmax_args():
     return parser.parse_args()
 
 
+def get_l_softmax_args():
+    parser = get_common_parser("MNIST - L-SoftmaxLoss")
+    parser.add_argument("-m", "--margin", type=int, default=1, help="Constant `m` that in L-SoftmaxLoss equation.")
+    return parser.parse_args()
+
+
 def get_ring_loss_args():
     parser = get_common_parser("MNIST - SoftmaxLoss + RingLoss")
     parser.add_argument("-R", type=float, default=24.0, help="Initial value of R")
     parser.add_argument("--loss-weight", type=float, default=0.01, help="Loss weight for RingLoss")
+    return parser.parse_args()
+
+
+def get_ring_loss_args_v2():
+    parser = get_common_parser("MNIST - SoftmaxLoss + RingLoss")
+    parser.add_argument("-R", type=float, default=24.0, help="Initial value of R")
+    parser.add_argument("--loss-weight", type=float, default=0.01, help="Loss weight for RingLoss")
+    parser.add_argument("-m", "--margin", type=int, default=1, help="Constant `m` that in L-SoftmaxLoss equation.")
     return parser.parse_args()
 
 
@@ -88,18 +103,18 @@ class FeatureVisualizer(object):
             self.labels[i * b:(i + 1) * b] = labels
             self._i = (i + 1) % self._t
 
-    def save_fig(self, epoch: int, **kwargs):
+    def save_fig(self, epoch: int, dpi=100, **kwargs):
         if epoch == self.next_epoch:
             self.next_epoch += self.frequency
             suffix = ",".join(f"{k}={v}" for k, v in kwargs.items())
             fname = f"epoch={epoch}{',' if suffix else ''}{suffix}"
             dest_path = os.path.join(self.root, f"{fname}.jpg")
             if not self.num_valid:
-                fig, ax = plt.subplots(layout="tight", dpi=300)
+                fig, ax = plt.subplots(layout="tight", dpi=dpi)
                 ax.set_aspect("equal")
                 self._save_fig(ax, self.features, self.labels, split="Training")
             else:
-                fig, axes = plt.subplots(1, 2, sharex='all', sharey="all", layout="tight", dpi=100)
+                fig, axes = plt.subplots(1, 2, sharex='all', sharey="all", layout="tight", dpi=dpi)
                 feats_train = self.features[:self.num_train]
                 label_train = self.labels[:self.num_train]
                 feats_valid = self.features[self.num_train:]

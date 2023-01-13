@@ -2,7 +2,7 @@
 Train MNIST with Original RingLoss
 
 Structure:
-    extractor -> NormLinear -> SoftmaxLoss + RingLoss
+    extractor -> L-SoftmaxLinear -> SoftmaxLoss + RingLoss
 """
 import torch
 from tqdm import tqdm
@@ -12,8 +12,8 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor, Normalize, Compose
 
-from common import get_ring_loss_args, FeatureVisualizer
-from nets import MNIST_Net, NormLinear
+from common import get_ring_loss_args_v2, FeatureVisualizer
+from nets import MNIST_Net, L_SoftmaxLinear
 from losses import SoftmaxLoss, RingLoss
 
 use_gpu = torch.cuda.is_available()
@@ -35,7 +35,7 @@ def main(args):
     # Model
     ################
     extractor = MNIST_Net(in_channels=1, out_channels=2).to(device)
-    classifier = NormLinear(2, 10, args.use_bias).to(device)
+    classifier = L_SoftmaxLinear(2, 10, args.margin).to(device)
     model = (extractor, classifier)
 
     #################
@@ -57,8 +57,8 @@ def main(args):
     ################
     # Visualizer
     ################
-    visualizer = FeatureVisualizer("RingLoss", len(ds_train), len(ds_valid), args.batch_size,
-                                   args.eval_epoch, args.vis_freq, args.use_bias, args.dark_theme)
+    visualizer = FeatureVisualizer("RingLoss+L-Softmax", len(ds_train), len(ds_valid), args.batch_size,
+                                   args.eval_epoch, args.vis_freq, False, args.dark_theme)
 
     #################
     # Train loop
@@ -86,7 +86,7 @@ def train_step(epoch, model, dataset, criterion, optimizer, visualizer, args):
 
         # forward
         feats = model[0](images)   # [N, 2]
-        logits = model[1](feats)   # [N, C]
+        logits = model[1](feats, labels)   # [N, C]
         loss_softmax = criterion[0](logits, labels)
         loss_ring = criterion[1](feats)
         loss = loss_softmax + loss_ring
@@ -135,8 +135,8 @@ def valid_step(epoch, model, dataset, criterion, visualizer, args):
         labels = labels.to(device, non_blocking=True)
 
         # forward
-        feats =  model[0](images)
-        logits = model[1](feats)
+        feats = model[0](images)
+        logits = model[1](feats, labels)
         loss_softmax = criterion[0](logits, labels)
         loss_ring = criterion[1](feats)
         loss = loss_softmax + loss_ring
@@ -167,5 +167,6 @@ def valid_step(epoch, model, dataset, criterion, visualizer, args):
 
 
 if __name__ == '__main__':
-    args = get_ring_loss_args()
+    args = get_ring_loss_args_v2()
+    print(args)
     main(args)

@@ -1,10 +1,11 @@
 """
-Train MNIST with Original RingLoss
+Train MNIST with Original Softmax Loss
 
 Structure:
-    extractor -> NormLinear -> SoftmaxLoss + RingLoss
+    extractor -> L-SoftmaxLinear -> SoftmaxLoss
 """
 import torch
+
 from tqdm import tqdm
 from torch.optim import Adam
 from torch.optim.lr_scheduler import StepLR
@@ -12,9 +13,10 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor, Normalize, Compose
 
-from common import get_ring_loss_args, FeatureVisualizer
-from nets import MNIST_Net, NormLinear
-from losses import SoftmaxLoss, RingLoss
+from common import get_l_softmax_args, FeatureVisualizer
+from nets import MNIST_Net, L_SoftmaxLinear
+from losses import SoftmaxLoss
+
 
 use_gpu = torch.cuda.is_available()
 device = torch.device("cuda" if use_gpu else "cpu")
@@ -35,46 +37,42 @@ def main(args):
     # Model
     ################
     extractor = MNIST_Net(in_channels=1, out_channels=2).to(device)
-    classifier = NormLinear(2, 10, args.use_bias).to(device)
-    model = (extractor, classifier)
+    classifier = L_SoftmaxLinear(2, 10, args.margin).to(device)
 
     #################
     # Loss Function
     #################
-    criterion_softmax = SoftmaxLoss().to(device)
-    criterion_ring = RingLoss(args.R, args.loss_weight).to(device)
-    criterion = (criterion_softmax, criterion_ring)
+    criterion = SoftmaxLoss().to(device)
 
     #################
     # Optimizer
     #################
     optimizer = Adam([{"params": extractor.parameters()},
-                      {"params": classifier.parameters()},
-                      {"params": criterion_ring.parameters()}],
+                      {"params": classifier.parameters()}],
                      lr=args.lr, weight_decay=args.weight_decay)
     schedular = StepLR(optimizer, args.step_size, args.gamma)
 
     ################
     # Visualizer
     ################
-    visualizer = FeatureVisualizer("RingLoss", len(ds_train), len(ds_valid), args.batch_size,
-                                   args.eval_epoch, args.vis_freq, args.use_bias, args.dark_theme)
+    visualizer = FeatureVisualizer("L-SoftmaxLoss", len(ds_train), len(ds_valid), args.batch_size,
+                                   args.eval_epoch, args.vis_freq, False, args.dark_theme)
 
     #################
     # Train loop
     #################
+    model = (extractor, classifier)
     for epoch in range(1, args.num_epochs + 1):
         train_step(epoch, model, ds_train, criterion, optimizer, visualizer, args)
         if epoch >= args.eval_epoch:
             valid_step(epoch, model, ds_valid, criterion, visualizer, args)
-        visualizer.save_fig(epoch, radius=args.R, loss_weight=args.loss_weight, dpi=args.dpi)
+        visualizer.save_fig(epoch, m=args.margin, dpi=args.dpi)
         schedular.step()
 
 
 def train_step(epoch, model, dataset, criterion, optimizer, visualizer, args):
     model[0].train()
     model[1].train()
-    criterion[1].train()
 
     total_loss: float = 0.0
     total_correct: int = 0
@@ -86,10 +84,8 @@ def train_step(epoch, model, dataset, criterion, optimizer, visualizer, args):
 
         # forward
         feats = model[0](images)   # [N, 2]
-        logits = model[1](feats)   # [N, C]
-        loss_softmax = criterion[0](logits, labels)
-        loss_ring = criterion[1](feats)
-        loss = loss_softmax + loss_ring
+        logits = model[1](feats, labels)   # [N, C]
+        loss = criterion(logits, labels)
 
         # backward
         optimizer.zero_grad()
@@ -106,9 +102,7 @@ def train_step(epoch, model, dataset, criterion, optimizer, visualizer, args):
         acc = total_correct / ((i + 1) * args.batch_size) * 100
 
         # Log info
-        R = criterion[1].R.item()
-        info_str = "loss: {:.4f}, acc: {:.1f}%, softmax: {:.4f}, ring: {:.4f}, R: {:.4f}".format(
-            avg_loss, acc, loss_softmax, loss_ring, R)
+        info_str = "loss: {loss:.4f}, acc: {acc:.1f}%".format(loss=avg_loss, acc=acc)
         progress_bar.set_postfix_str(info_str)
         if (i + 1) % args.log_freq == 0:
             progress_bar.update(args.log_freq)
@@ -125,7 +119,6 @@ def train_step(epoch, model, dataset, criterion, optimizer, visualizer, args):
 def valid_step(epoch, model, dataset, criterion, visualizer, args):
     model[0].eval()
     model[1].eval()
-    criterion[1].eval()
 
     total_loss: float = 0.0
     total_correct: int = 0
@@ -135,11 +128,9 @@ def valid_step(epoch, model, dataset, criterion, visualizer, args):
         labels = labels.to(device, non_blocking=True)
 
         # forward
-        feats =  model[0](images)
-        logits = model[1](feats)
-        loss_softmax = criterion[0](logits, labels)
-        loss_ring = criterion[1](feats)
-        loss = loss_softmax + loss_ring
+        feats = model[0](images)
+        logits = model[1](feats, labels)
+        loss = criterion(logits, labels)
 
         # loss
         total_loss += loss.item() / len(dataset)
@@ -151,9 +142,7 @@ def valid_step(epoch, model, dataset, criterion, visualizer, args):
         acc = total_correct / ((i + 1) * args.batch_size) * 100
 
         # Log info
-        R = criterion[1].R.item()
-        info_str = "loss: {:.4f}, acc: {:.1f}%, softmax: {:.4f}, ring: {:.4f}, R: {:.4f}".format(
-            avg_loss, acc, loss_softmax, loss_ring, R)
+        info_str = "loss: {loss:.4f}, acc: {acc:.1f}%".format(loss=avg_loss, acc=acc)
         progress_bar.set_postfix_str(info_str)
         if i % args.log_freq == 0:
             progress_bar.update(args.log_freq)
@@ -167,5 +156,5 @@ def valid_step(epoch, model, dataset, criterion, visualizer, args):
 
 
 if __name__ == '__main__':
-    args = get_ring_loss_args()
+    args = get_l_softmax_args()
     main(args)

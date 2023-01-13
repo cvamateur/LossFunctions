@@ -58,7 +58,7 @@ def main(args):
     # Visualizer
     ################
     visualizer = FeatureVisualizer("L2-SoftmaxLoss", len(ds_train), len(ds_valid), args.batch_size,
-                                   args.eval_epoch, args.vis_freq, args.dark_theme)
+                                   args.eval_epoch, args.vis_freq, args.use_bias, args.dark_theme)
 
     #################
     # Train loop
@@ -68,7 +68,7 @@ def main(args):
         train_step(epoch, model, ds_train, criterion, optimizer, visualizer, args)
         if epoch >= args.eval_epoch:
             valid_step(epoch, model, ds_valid, criterion, visualizer, args)
-        visualizer.save_fig(epoch, init_r=args.alpha, trainable=args.trainable)
+        visualizer.save_fig(epoch, init_r=args.alpha, trainable=args.trainable, dpi=args.dpi)
         schedular.step()
 
 

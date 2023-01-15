@@ -81,12 +81,8 @@ class L_SoftmaxLinear(nn.Module):
     """
     Refer to paper [Large-Margin Softmax Loss for Convolutional Neural Networks]
     (https://arxiv.org/pdf/1612.02295.pdf).
-
-    Refer to paper [SphereFace: Deep Hypersphere Embedding for Face Recognition]
-    (https://arxiv.org/pdf/1704.08063.pdf).
     """
-
-    def __init__(self, in_features: int, out_features: int, margin: int = 1, dtype=None, device=None):
+    def __init__(self, in_features: int, out_features: int, margin: int = 3, dtype=None, device=None):
         super().__init__()
         if dtype is None: dtype = torch.float32
         if device is None: device = torch.device("cpu")
@@ -105,11 +101,15 @@ class L_SoftmaxLinear(nn.Module):
         self.register_buffer("pow_sin2", pow_sin2)
         self._beta = 100
 
+    def _fc_impl(self, feats):
+        logits = F.linear(feats, self.weight)
+        return logits
+
     def forward(self, feats, targets=None):
         if self.training and targets is None:
             raise RuntimeError("targets is None while module in training phase")
 
-        logits = F.linear(feats, self.weight)   # [N, C]
+        logits = self._fc_impl(feats)           # [N, C]
         if targets is None: return logits       # Testing Phase
 
         # Training Phase
@@ -146,3 +146,13 @@ class L_SoftmaxLinear(nn.Module):
         theta = torch.acos(cos_theta)
         k = torch.floor(theta * self.margin / math.pi).detach()
         return k
+
+
+class A_SoftmaxLinear(L_SoftmaxLinear):
+    """
+    Refer to paper [SphereFace: Deep Hypersphere Embedding for Face Recognition]
+    (https://arxiv.org/pdf/1704.08063.pdf).
+    """
+    def _fc_impl(self, feats):
+        logits = F.linear(feats, F.normalize(self.weight))
+        return logits

@@ -44,8 +44,11 @@ def get_l2_softmax_args():
 
 def get_l_softmax_args():
     parser = get_common_parser("MNIST - L-SoftmaxLoss")
-    parser.add_argument("-m", "--margin", type=int, default=1, help="Constant `m` that in L-SoftmaxLoss equation.")
+    parser.add_argument("-m", "--margin", type=int, default=3, help="Constant `m` that in L-SoftmaxLoss equation.")
     return parser.parse_args()
+
+
+get_a_softmax_args = get_l_softmax_args
 
 
 def get_ring_loss_args():

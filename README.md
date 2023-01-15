@@ -31,6 +31,8 @@ A：根据 **NormFace**论文的观点分析：
 
 ---
 
+
+
 ## 2. L2-Softmax Loss
 
 参考论文: [L2-constrained Softmax Loss for Discriminative Face Verification](https://arxiv.org/pdf/1703.09507.pdf).
@@ -54,6 +56,10 @@ A：根据 **NormFace**论文的观点分析：
 
 ![epoch500](pics/L2-SoftmaxLoss/epoch=500,init_r=24.0,trainable=True.jpg)
 
+---
+
+
+
 ## 3. Ring Loss
 
 参考论文: [Ring loss: Convex Feature Normalization for Face Recognition](https://arxiv.org/pdf/1803.00130.pdf).
@@ -72,6 +78,10 @@ A：根据 **NormFace**论文的观点分析：
     - 使用Softmax + RingLoss 当 $\lambda=0.01$ 时超过了L2-Softmax Loss
 
 ![epoch500](pics/RingLoss/epoch=500,radius=24.0,loss_weight=0.01.jpg)
+
+---
+
+
 
 ## 4. L-Softmax Loss
 
@@ -97,7 +107,15 @@ A：根据 **NormFace**论文的观点分析：
   - $\lambda$ 初始值较大，但随着迭代次逐渐减少
   - 一般而言，m的值不能过大，m=3 或 m=4 可获得较好结果。此外，L-SoftmaxLoss也有助于减轻过拟合问题
 
-  
+
+
+
+![Epoch500](pics/L-SoftmaxLoss/epoch=500,m=3.jpg)
+
+---
+
+
+
 ## 5. A-Softmax Loss
 参考论文: [SphereFace: Deep Hypersphere Embedding for Face Recognition](https://arxiv.org/pdf/1704.08063.pdf)
 
@@ -113,3 +131,12 @@ A：根据 **NormFace**论文的观点分析：
   - **删除最后一层FC**的非线性ReLU激活层有助于特征学习，从直观感受上看，ReLU将特征限制在了第一象限，删除它能提供更大的可学习空间（从角度的观点看）
   - **归一化最后一层FC的权重**能减少由于训练数据不平衡导致的先验概率（如长尾分布）。试验表明，某个类如果存在更多样本，那么与那个类对应的特征的L2范数趋向于变大，从而权重的范数可视为训练数据集的先验，消除这种先验通常有利于人脸验证，因为人脸验证需求的数据不存在与训练数据集中。
 
+
+
+![Epoch500](pics/A-SoftmaxLoss/epoch=500,m=3.jpg)
+
+---
+
+
+
+## 6.  CosFace

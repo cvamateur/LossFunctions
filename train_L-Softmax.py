@@ -1,5 +1,5 @@
 """
-Train MNIST with Original Softmax Loss
+Train MNIST with L-Softmax Loss
 
 Structure:
     extractor -> L-SoftmaxLinear -> SoftmaxLoss

@@ -1,5 +1,5 @@
 """
-Train MNIST with Original RingLoss
+Train MNIST with L-SoftmaxLoss with RingLoss
 
 Structure:
     extractor -> L-SoftmaxLinear -> SoftmaxLoss + RingLoss

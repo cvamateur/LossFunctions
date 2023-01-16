@@ -50,7 +50,7 @@ A：根据 **NormFace**论文的观点分析：
       ```
 - 参数$\alpha$
     - 过大则导致放松了L2约束；过小则导致不收敛
-    - 可以使用固定值可以是可学习的参数，通过固定$\alpha$到其下界会获得较好的结果
+    - 可以是固定值也可以是可学习的参数，通过固定$\alpha$到其下界会获得较好的结果
     - 理论下届公式：$\alpha_{low}=log \frac{p(C-2)}{1-p}$
     - 经验证，$\alpha$ 处于范围 [16, 32] 都能获得几乎一致的效果；若是可学习参数则效果稍有降低
 
@@ -121,7 +121,7 @@ A：根据 **NormFace**论文的观点分析：
 
 **总结：**
 - 出发点：
-  - 开集人脸识别中，测试样本通常与训练样本不重叠，实际上是一个度量学习问题，其关键是学习可判别的大间隔特征，其理想的特征应满足 **最大类内距离小于最小类间距离**
+  - 开集人脸识别中，测试样本通常与训练样本不重叠，实际上是一个度量学习问题，其关键是学习可判别的大间隔特征，其理想的特征应满足**最大类内距离小于最小类间距离**
   - 由SoftmaxLoss学到的特征的判别性不足，为了解决这个问题，许多其他的方法将欧式距离的间隔引入特征学习中，与SoftmaxLoss配合，如Contrastive Loss，CenterLoss，TripletLoss等，获得了很好的结果。
   - 但SoftmaxLoss学到的特征存在固有的角分布性质，因此那些基于欧式距离的loss函数与SoftmaxLoss其实并不兼容，从而论文引入了角度间隔，能更自然的与SoftmaxLoss配合来学习角分布的特征
 - 实现：
@@ -140,3 +140,38 @@ A：根据 **NormFace**论文的观点分析：
 
 
 ## 6.  CosFace
+
+参考论文：[CosFace: Large Margin Cosine Loss for Deep Face Recognition](https://arxiv.org/pdf/1801.09414.pdf)
+
+ **总结：**
+
+- 由于SoftmaxLoss不具判别性，在分析了多数能增强判别性的loss后，论文持有相同的理念：最大化类间方差，最小化类内方差。
+- 角度间隔相对于欧式间隔更合适，因为余弦符合Softmax的内在一致性。与A-Softmax引入角度间隔不同，CosFaceLoss（LMCL）直接引入一个余弦间隔（Cosine Margin）在角空间内最大化类间方差：  $cos(\theta_1) - m > cos(\theta_2)$
+
+- 归一化问题：
+  - 同时归一化特征和权重，可以消除径向方差的影响，从而使模型训练时更注重角度的影响，最终减少类内的角度变化
+  - **归一化权重 **可以在SoftmaxLoss中将向量內积替换为余弦相似度，将其模长归一化为 **1** 可以使特征学习更有效： $\parallel W_j \parallel = 1$
+  - **归一化特征** 可以使特征处于归一化空间上。由于在测试阶段，人脸配对的分数是通过计算两个特征向量的余弦相似度得到的，也就意味着特征的模长对得分函数没有贡献，因此训练是将其模长固定为 **s**，最终后验概率仅仅依赖余弦值： $\parallel x \parallel = s$
+- 特征模长 s 具有下届： $s \ge \frac{C - 1}{C} log \frac{(C-1)P_W}{1-P_W}$
+
+- 余弦间隔 m 的范围：
+  - $0 \le m \le 1 - cos \frac{2\pi}{C}, \qquad K = 2$
+  - $0 \le m \le \frac {C}{C-1}, \qquad \qquad C \le K + 1$
+  - $0 \le m \ll \frac{C}{C-1}, \qquad \qquad C > K + 1$ 
+
+- 公式：
+  -  $L_{lmc} = \frac{1}{N} \sum_i -log\frac{e^{s(cos(\theta_{y_i,i})-m)}}{e^{s(cos(\theta_{y_i,i})-m)} + \sum_{j \neq y_i} e^{scos(\theta_{j,i})}}$
+  - $W = \frac{W^*}{\parallel W^* \parallel}$,   $x = \frac{x^*}{\parallel x^* \parallel}$
+  - $cos(\theta_{j,i}) = W_j^Tx_i$
+
+
+
+![Epoch500](pics/AM-SoftmaxLoss/epoch=100,s=32.0,m=0.1.jpg)
+
+---
+
+
+
+## 7. ArcFace
+
+参考论文：[ArcFace: Additive Angular Margin Loss for Deep Face Recognition](https://arxiv.org/pdf/1801.07698.pdf)

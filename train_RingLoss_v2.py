@@ -14,7 +14,8 @@ from torchvision.transforms import ToTensor, Normalize, Compose
 from tqdm import tqdm
 
 from common import get_ring_loss_args_v2, FeatureVisualizer
-from nets import MNIST_Net, L2NormLayer, L_SoftmaxLinear
+from nets import MNIST_Net
+from margin import L_SoftmaxLinear
 from losses import SoftmaxLoss, RingLoss
 
 use_gpu = torch.cuda.is_available()

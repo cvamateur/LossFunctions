@@ -1,5 +1,5 @@
 """
-Train MNIST with A-Softmax Loss
+Train MNIST with AM-Softmax Loss or LMCL(CosFace)
 
 Structure:
     extractor -> A-SoftmaxLinear -> SoftmaxLoss
@@ -13,9 +13,9 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor, Normalize, Compose
 
-from common import get_a_softmax_args, FeatureVisualizer
+from common import get_cosface_loss_args, FeatureVisualizer
 from nets import MNIST_Net
-from margin import A_SoftmaxLinear
+from margin import AM_SoftmaxLinear
 from losses import SoftmaxLoss
 
 
@@ -38,7 +38,7 @@ def main(args):
     # Model
     ################
     extractor = MNIST_Net(in_channels=1, out_channels=2).to(device)
-    classifier = A_SoftmaxLinear(2, 10, args.margin).to(device)
+    classifier = AM_SoftmaxLinear(2, 10, args.feats_norm, args.margin).to(device)
 
     #################
     # Loss Function
@@ -56,7 +56,7 @@ def main(args):
     ################
     # Visualizer
     ################
-    visualizer = FeatureVisualizer("A-SoftmaxLoss", len(ds_train), len(ds_valid), args.batch_size,
+    visualizer = FeatureVisualizer("AM-SoftmaxLoss", len(ds_train), len(ds_valid), args.batch_size,
                                    args.eval_epoch, args.vis_freq, False, args.dark_theme)
 
     #################
@@ -67,7 +67,7 @@ def main(args):
         train_step(epoch, model, ds_train, criterion, optimizer, visualizer, args)
         if epoch >= args.eval_epoch:
             valid_step(epoch, model, ds_valid, criterion, visualizer, args)
-        visualizer.save_fig(epoch, m=args.margin, dpi=args.dpi)
+        visualizer.save_fig(epoch, s=args.feats_norm, m=args.margin, dpi=args.dpi)
         schedular.step()
 
 
@@ -157,5 +157,5 @@ def valid_step(epoch, model, dataset, criterion, visualizer, args):
 
 
 if __name__ == '__main__':
-    args = get_a_softmax_args()
+    args = get_cosface_loss_args()
     main(args)

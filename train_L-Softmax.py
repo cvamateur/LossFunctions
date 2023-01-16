@@ -14,7 +14,8 @@ from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor, Normalize, Compose
 
 from common import get_l_softmax_args, FeatureVisualizer
-from nets import MNIST_Net, L_SoftmaxLinear
+from nets import MNIST_Net
+from margin import L_SoftmaxLinear
 from losses import SoftmaxLoss
 
 

@@ -48,7 +48,10 @@ def get_l_softmax_args():
     return parser.parse_args()
 
 
-get_a_softmax_args = get_l_softmax_args
+def get_a_softmax_args():
+    parser = get_common_parser("MNIST - A-SoftmaxLoss")
+    parser.add_argument("-m", "--margin", type=int, default=3, help="Constant `m` that in L-SoftmaxLoss equation.")
+    return parser.parse_args()
 
 
 def get_ring_loss_args():
@@ -59,10 +62,17 @@ def get_ring_loss_args():
 
 
 def get_ring_loss_args_v2():
-    parser = get_common_parser("MNIST - SoftmaxLoss + RingLoss")
+    parser = get_common_parser("MNIST - SoftmaxLoss + RingLossV2")
     parser.add_argument("-R", type=float, default=24.0, help="Initial value of R")
     parser.add_argument("--loss-weight", type=float, default=0.01, help="Loss weight for RingLoss")
     parser.add_argument("-m", "--margin", type=int, default=1, help="Constant `m` that in L-SoftmaxLoss equation.")
+    return parser.parse_args()
+
+
+def get_cosface_loss_args():
+    parser = get_common_parser("MNIST - CosFace Loss / AM-SoftmaxLoss")
+    parser.add_argument("-s", "--feats-norm", type=float, default=32.0, help="Squared L2-Norm of features")
+    parser.add_argument("-m", "--margin", type=float, default=0.2, help="Angular margin in LMCL")
     return parser.parse_args()
 
 

@@ -97,11 +97,11 @@ A：根据 **NormFace**论文的观点分析：
         - 显然，如果该公式成立，则$\theta_1$更大于$\theta_2$，对于另外一类同理，从而两个类的分界面中间产生margin，最终“类内聚集，类间分散”
 
 - 公式：
-    - $L_i=-log(\frac{e^{\parallel W_{yi} \parallel \parallel x_i \parallel \phi(\theta_{yi})}}{e^{\parallel W_{yi}
-      \parallel \parallel x_i \parallel \phi(\theta_{yi})} + \sum_{j \neq y_i} e^{\parallel W_j \parallel \parallel x_i
-      \parallel \phi(\theta_j)}})$
-    - $\phi(\theta)=(-1)^kcos(m\theta)-2k, \quad \theta \in [\frac{k \pi}{m}, \frac{(k+1) \pi}{m}]$, 其中k是[0, m-1]的整数
-    - $cos(m\theta_{y_i})=C_m^0cos^m(\theta_{y_i}) - C_m^2cos^{m-2}(\theta_{y_i})(1-cos^2(\theta_{y_i})) + ... + (-1)^nC_m^{2n}cos^{m-2n}(\theta_{y_i})(1-cos^2(\theta_{y_i}))^n + ...$， 其中n为整数且$2n\ge m$
+    - $L_i=-log(\frac{e^{\parallel W_{yi} \parallel \parallel x_i \parallel \psi(\theta_{yi})}}{e^{\parallel W_{yi}
+      \parallel \parallel x_i \parallel \psi(\theta_{yi})} + \sum_{j \neq y_i} e^{\parallel W_j \parallel \parallel x_i
+      \parallel cos(\theta_j)}})$
+    - $\psi(\theta)=(-1)^kcos(m\theta)-2k, \quad \theta \in [\frac{k \pi}{m}, \frac{(k+1) \pi}{m}]$, 其中k是[0, m-1]的整数
+    - $cos(m\theta_{y_i})=C_m^0cos^m(\theta_{y_i}) - C_m^2cos^{m-2}(\theta_{y_i})(1-cos^2(\theta_{y_i})) + ... + (-1)^nC_m^{2n}cos^{m-2n}(\theta_{y_i})(1-cos^2(\theta_{y_i}))^n + ...$， 其中n为整数且 $2n\le m$
 - 训练时，为了降低收敛难度，使用退火策略更新: 
   - $f_{y_i}=\frac{\lambda \parallel W_{yi} \parallel \parallel x_i \parallel  cos(\theta_{yi}) + \parallel W_{yi} \parallel \parallel x_i \parallel \phi(\theta_{yi})}{1+\lambda}$
   - $\lambda$ 初始值较大，但随着迭代次逐渐减少
@@ -116,7 +116,7 @@ A：根据 **NormFace**论文的观点分析：
 
 
 
-## 5. A-Softmax Loss
+## 5. SphereFace: A-Softmax Loss
 参考论文: [SphereFace: Deep Hypersphere Embedding for Face Recognition](https://arxiv.org/pdf/1704.08063.pdf)
 
 **总结：**
@@ -133,7 +133,7 @@ A：根据 **NormFace**论文的观点分析：
 
 
 
-![Epoch500](pics/A-SoftmaxLoss/epoch=500,m=3.jpg)
+![Epoch500](pics/SphereFaceLoss/epoch=500,m=3.jpg)
 
 ---
 
@@ -166,7 +166,7 @@ A：根据 **NormFace**论文的观点分析：
 
 
 
-![Epoch500](pics/AM-SoftmaxLoss/epoch=100,s=32.0,m=0.1.jpg)
+![Epoch500](pics/CosFaceLoss/epoch=100,s=32.0,m=0.1.jpg)
 
 ---
 

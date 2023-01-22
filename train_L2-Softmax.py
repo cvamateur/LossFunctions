@@ -13,9 +13,10 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor, Normalize, Compose
 
-from common import get_l2_softmax_args, FeatureVisualizer
-from nets import MNIST_Net, L2NormLayer
 from losses import SoftmaxLoss
+from common.nets import MNIST_Net, NormScaleLayer
+from common.cli_parser import get_l2_softmax_args
+from common.visualizer import FeatureVisualizer
 
 use_gpu = torch.cuda.is_available()
 device = torch.device("cuda" if use_gpu else "cpu")
@@ -37,7 +38,7 @@ def main(args):
     ################
     extractor = MNIST_Net(in_channels=1, out_channels=2).to(device)
     classifier = nn.Sequential(*[
-        L2NormLayer(args.alpha, args.trainable),
+        NormScaleLayer(args.alpha, args.trainable),
         nn.Linear(2, 10, args.use_bias),
     ]).to(device)
 

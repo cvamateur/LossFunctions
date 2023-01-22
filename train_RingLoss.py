@@ -12,9 +12,10 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor, Normalize, Compose
 
-from common import get_ring_loss_args, FeatureVisualizer
-from nets import MNIST_Net, NormLinear
 from losses import SoftmaxLoss, RingLoss
+from common.cli_parser import get_ring_loss_args
+from common.visualizer import FeatureVisualizer
+from common.nets import MNIST_Net, NormLinear
 
 use_gpu = torch.cuda.is_available()
 device = torch.device("cuda" if use_gpu else "cpu")

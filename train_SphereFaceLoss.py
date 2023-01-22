@@ -1,5 +1,5 @@
 """
-Train MNIST with AM-Softmax Loss or LMCL(CosFace)
+Train MNIST with A-Softmax Loss
 
 Structure:
     extractor -> A-SoftmaxLinear -> SoftmaxLoss
@@ -13,10 +13,11 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor, Normalize, Compose
 
-from common import get_cosface_loss_args, FeatureVisualizer
-from nets import MNIST_Net
-from margin import AM_SoftmaxLinear
 from losses import SoftmaxLoss
+from losses.margin import SphereFaceLinear
+from common.cli_parser import get_a_softmax_args
+from common.visualizer import FeatureVisualizer
+from common.nets import MNIST_Net
 
 
 use_gpu = torch.cuda.is_available()
@@ -38,7 +39,7 @@ def main(args):
     # Model
     ################
     extractor = MNIST_Net(in_channels=1, out_channels=2).to(device)
-    classifier = AM_SoftmaxLinear(2, 10, args.feats_norm, args.margin).to(device)
+    classifier = SphereFaceLinear(2, 10, args.margin).to(device)
 
     #################
     # Loss Function
@@ -56,7 +57,7 @@ def main(args):
     ################
     # Visualizer
     ################
-    visualizer = FeatureVisualizer("AM-SoftmaxLoss", len(ds_train), len(ds_valid), args.batch_size,
+    visualizer = FeatureVisualizer("SphereFaceLoss", len(ds_train), len(ds_valid), args.batch_size,
                                    args.eval_epoch, args.vis_freq, False, args.dark_theme)
 
     #################
@@ -67,7 +68,7 @@ def main(args):
         train_step(epoch, model, ds_train, criterion, optimizer, visualizer, args)
         if epoch >= args.eval_epoch:
             valid_step(epoch, model, ds_valid, criterion, visualizer, args)
-        visualizer.save_fig(epoch, s=args.feats_norm, m=args.margin, dpi=args.dpi)
+        visualizer.save_fig(epoch, m=args.margin, dpi=args.dpi)
         schedular.step()
 
 
@@ -157,5 +158,5 @@ def valid_step(epoch, model, dataset, criterion, visualizer, args):
 
 
 if __name__ == '__main__':
-    args = get_cosface_loss_args()
+    args = get_a_softmax_args()
     main(args)

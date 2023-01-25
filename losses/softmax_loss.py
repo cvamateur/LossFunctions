@@ -21,12 +21,12 @@ class SoftmaxLoss(nn.Module):
     >> loss.backward()
     """
 
-    def __init__(self, reduction="mean"):
+    def __init__(self, weight=None, reduction="mean"):
         super(SoftmaxLoss, self).__init__()
         self._reduction = reduction
+        self._weight = weight
 
     def forward(self, logits, targets):
         out = F.log_softmax(logits, dim=1)
-        out = F.nll_loss(out, targets, reduction=self._reduction)
+        out = F.nll_loss(out, targets, weight=self._weight, reduction=self._reduction)
         return out
-

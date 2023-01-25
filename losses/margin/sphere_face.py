@@ -46,7 +46,7 @@ class L_SoftmaxLinear(nn.Module):
 
     def forward(self, feats, targets=None):
         if self.training and targets is None:
-            raise RuntimeError("targets is None while module in training phase")
+            raise RuntimeError("targets is None while module in train phase")
 
         logits = self._fc_impl(feats)  # [N, C]
         if targets is None: return logits  # Testing Phase

@@ -1,8 +1,8 @@
 """
-Train MNIST with ArcFace-Softmax Loss
+Train MNIST with Original Softmax Loss
 
 Structure:
-    extractor -> ArcFaceLinear -> SoftmaxLoss
+    extractor -> nn.Linear -> SoftmaxLoss
 """
 import torch
 
@@ -14,10 +14,11 @@ from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor, Normalize, Compose
 
 from losses import SoftmaxLoss
-from losses.margin import ArcFaceLinear
-from common.cli_parser import get_arcface_loss_args
+from losses.margin import NormFaceLinear
+from common.cli_parser import get_nsl_args
 from common.visualizer import FeatureVisualizer
 from common.nets import MNIST_Net
+
 
 use_gpu = torch.cuda.is_available()
 device = torch.device("cuda" if use_gpu else "cpu")
@@ -28,8 +29,8 @@ def main(args):
     # MNIST Dataset
     ################
     transform = Compose([ToTensor(), Normalize([0.1307], [0.3081])])
-    ds_train = MNIST("./data", True, transform, download=args.download)
-    ds_valid = MNIST("./data", False, transform, download=args.download)
+    ds_train = MNIST(args.data_root, True, transform, download=args.download)
+    ds_valid = MNIST(args.data_root, False, transform, download=args.download)
     kwargs = {"batch_size": args.batch_size, "num_workers": args.num_workers, "drop_last": True, "pin_memory": use_gpu}
     ds_train = DataLoader(ds_train, shuffle=True, **kwargs)
     ds_valid = DataLoader(ds_valid, shuffle=False, **kwargs)
@@ -38,7 +39,7 @@ def main(args):
     # Model
     ################
     extractor = MNIST_Net(in_channels=1, out_channels=2).to(device)
-    classifier = ArcFaceLinear(2, 10, args.feats_norm, args.margin).to(device)
+    classifier = NormFaceLinear(2, 10, args.feats_norm).to(device)
 
     #################
     # Loss Function
@@ -51,16 +52,13 @@ def main(args):
     optimizer = Adam([{"params": extractor.parameters()},
                       {"params": classifier.parameters()}],
                      lr=args.lr, weight_decay=args.weight_decay)
-    # optimizer = SGD([{"params": extractor.parameters()},
-    #                  {"params": classifier.parameters()}],
-    #                 lr=args.lr, weight_decay=args.weight_decay, momentum=0.9)
     schedular = StepLR(optimizer, args.step_size, args.gamma)
 
     ################
     # Visualizer
     ################
-    visualizer = FeatureVisualizer("ArcFaceLoss", len(ds_train), len(ds_valid), args.batch_size,
-                                   args.eval_epoch, args.vis_freq, False, args.dark_theme)
+    visualizer = FeatureVisualizer("NormFaceLoss", len(ds_train), len(ds_valid), args.batch_size,
+                                   args.eval_epoch, args.vis_freq, args.use_bias, args.dark_theme)
 
     #################
     # Train loop
@@ -70,7 +68,7 @@ def main(args):
         train_step(epoch, model, ds_train, criterion, optimizer, visualizer, args)
         if epoch >= args.eval_epoch:
             valid_step(epoch, model, ds_valid, criterion, visualizer, args)
-        visualizer.save_fig(epoch, s=args.feats_norm, m=args.margin, dpi=args.dpi)
+        visualizer.save_fig(epoch, dpi=args.dpi)
         schedular.step()
 
 
@@ -87,8 +85,8 @@ def train_step(epoch, model, dataset, criterion, optimizer, visualizer, args):
             labels = labels.to(device, non_blocking=True)
 
         # forward
-        feats = model[0](images)  # [N, 2]
-        logits = model[1](feats, labels)  # [N, C]
+        feats = model[0](images)   # [N, 2]
+        logits = model[1](feats)   # [N, C]
         loss = criterion(logits, labels)
 
         # backward
@@ -133,7 +131,7 @@ def valid_step(epoch, model, dataset, criterion, visualizer, args):
 
         # forward
         feats = model[0](images)
-        logits = model[1](feats, labels)
+        logits = model[1](feats)
         loss = criterion(logits, labels)
 
         # loss
@@ -160,5 +158,5 @@ def valid_step(epoch, model, dataset, criterion, visualizer, args):
 
 
 if __name__ == '__main__':
-    args = get_arcface_loss_args()
+    args = get_nsl_args()
     main(args)

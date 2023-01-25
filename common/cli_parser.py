@@ -5,6 +5,7 @@ def get_common_parser(desc: str = "MNIST Training"):
     parser = argparse.ArgumentParser(description=desc)
 
     # Global configurations
+    parser.add_argument("--data-root", default="../data", help="Data root directory")
     parser.add_argument("--download", action="store_true", help="Download MNIST dataset")
     parser.add_argument("--dark-theme", action="store_true", help="Pictures background will be black")
     parser.add_argument("--log-freq", type=int, default=50, help="Logging frequency")
@@ -76,15 +77,37 @@ def get_arcface_loss_args():
     parser.add_argument("-m", "--margin", type=float, default=0.5, help="Additive angular margin.")
     return parser.parse_args()
 
+
 def get_center_loss_args():
     parser = get_common_parser("MNIST - Center Loss")
     parser.add_argument("--loss-weight", type=float, default=0.01, help="Loss weight of CenterLoss")
     return parser.parse_args()
 
+
 def get_triplet_loss_args():
     parser = get_common_parser("MNIST - Triplet Loss")
-    parser.add_argument("-m", "--margin", type=float, default=0.01, help="Margin in Triplet-Loss")
-    parser.add_argument("--strategy", type=str, default="batch_hard", help="Strategy of sampling triplets, must be 'batch_hard' or 'batch_all'")
+    parser.add_argument("--normalize", action="store_true", help="Normalize features.")
+    parser.add_argument("-m", "--margin", type=float, default=1.0, help="Margin in Triplet-Loss")
+    parser.add_argument("--strategy", type=str, default="batch_hard",
+                        help="Strategy of sampling triplets, must be 'batch_hard' or 'batch_all'")
     parser.add_argument("--loss-weight", type=float, default=0.1, help="Loss weight for Triplet-Loss")
     parser.add_argument("--break-epoch", type=int, default=50, help="Epoch to incorporate Triplet-Loss")
     return parser.parse_args()
+
+
+def get_contrastive_loss_args():
+    parser = get_common_parser("MNIST - Contrastive Loss")
+    parser.add_argument("--normalize", action="store_true", help="Normalize features.")
+    parser.add_argument("-m", "--margin", type=float, default=1.0, help="Margin in Triplet-Loss")
+    parser.add_argument("--loss-weight", type=float, default=1, help="Loss weight for Triplet-Loss")
+    parser.add_argument("--break-epoch", type=int, default=10, help="Epoch to incorporate Triplet-Loss")
+    return parser.parse_args()
+
+
+def get_focal_loss_args():
+    parser = get_common_parser("MNIST - Focal Loss")
+    parser.add_argument("--weights", help="Weight factor of each class, type List[float] or Tuple[float].")
+    parser.add_argument("--exponent", type=float, default=2.0, help="Exponent of modulating factor.")
+    return parser.parse_args()
+
+

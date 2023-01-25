@@ -29,8 +29,8 @@ def main(args):
     # MNIST Dataset
     ################
     transform = Compose([ToTensor(), Normalize([0.1307], [0.3081])])
-    ds_train = MNIST("./data", True, transform, download=args.download)
-    ds_valid = MNIST("./data", False, transform, download=args.download)
+    ds_train = MNIST(args.data_root, True, transform, download=args.download)
+    ds_valid = MNIST(args.data_root, False, transform, download=args.download)
     kwargs = {"batch_size": args.batch_size, "num_workers": args.num_workers, "drop_last": True, "pin_memory": use_gpu}
     ds_train = DataLoader(ds_train, shuffle=True, **kwargs)
     ds_valid = DataLoader(ds_valid, shuffle=False, **kwargs)

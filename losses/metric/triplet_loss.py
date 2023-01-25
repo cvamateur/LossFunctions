@@ -27,7 +27,7 @@ class TripletLoss(nn.Module):
             the hardest negative among the batch.
 
     NOTE:
-        Selecting the hardest negatives can in practice lead to bad local minima early on in training.
+        Selecting the hardest negatives can in practice lead to bad local minima early on in train.
     """
 
     def __init__(self, margin: float, loss_weight: float, strategy: str = "batch_hard"):

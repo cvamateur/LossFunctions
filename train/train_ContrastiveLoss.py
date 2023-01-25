@@ -1,10 +1,11 @@
 """
-Train MNIST with AM-Softmax Loss or LMCL(CosFace)
+Train MNIST with Original Softmax Loss
 
 Structure:
-    extractor -> A-SoftmaxLinear -> SoftmaxLoss
+    extractor -> nn.Linear -> SoftmaxLoss
 """
 import torch
+import torch.nn.functional as F
 
 from tqdm import tqdm
 from torch.optim import Adam
@@ -14,11 +15,10 @@ from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor, Normalize, Compose
 
 from losses import SoftmaxLoss
-from losses.margin import CosFaceLinear
-from common.cli_parser import get_cosface_loss_args
-from common.visualizer import FeatureVisualizer
+from losses.metric import ContrastiveLoss
 from common.nets import MNIST_Net
-
+from common.cli_parser import get_contrastive_loss_args
+from common.visualizer import FeatureVisualizer
 
 use_gpu = torch.cuda.is_available()
 device = torch.device("cuda" if use_gpu else "cpu")
@@ -29,8 +29,8 @@ def main(args):
     # MNIST Dataset
     ################
     transform = Compose([ToTensor(), Normalize([0.1307], [0.3081])])
-    ds_train = MNIST("./data", True, transform, download=args.download)
-    ds_valid = MNIST("./data", False, transform, download=args.download)
+    ds_train = MNIST(args.data_root, True, transform, download=args.download)
+    ds_valid = MNIST(args.data_root, False, transform, download=args.download)
     kwargs = {"batch_size": args.batch_size, "num_workers": args.num_workers, "drop_last": True, "pin_memory": use_gpu}
     ds_train = DataLoader(ds_train, shuffle=True, **kwargs)
     ds_valid = DataLoader(ds_valid, shuffle=False, **kwargs)
@@ -39,12 +39,14 @@ def main(args):
     # Model
     ################
     extractor = MNIST_Net(in_channels=1, out_channels=2).to(device)
-    classifier = CosFaceLinear(2, 10, args.feats_norm, args.margin).to(device)
+    classifier = torch.nn.Linear(2, 10, args.use_bias).to(device)
 
     #################
     # Loss Function
     #################
-    criterion = SoftmaxLoss().to(device)
+    softmax_fn = SoftmaxLoss().to(device)
+    triplet_fn = ContrastiveLoss(args.margin, args.loss_weight).to(device)
+    criterion = (softmax_fn, triplet_fn)
 
     #################
     # Optimizer
@@ -57,8 +59,9 @@ def main(args):
     ################
     # Visualizer
     ################
-    visualizer = FeatureVisualizer("CosFaceLoss", len(ds_train), len(ds_valid), args.batch_size,
-                                   args.eval_epoch, args.vis_freq, False, args.dark_theme)
+    name = "ContrastiveLoss_norm" if args.normalize else "ContrastiveLoss"
+    visualizer = FeatureVisualizer(name, len(ds_train), len(ds_valid), args.batch_size,
+                                   args.eval_epoch, args.vis_freq, args.use_bias, args.dark_theme)
 
     #################
     # Train loop
@@ -68,7 +71,7 @@ def main(args):
         train_step(epoch, model, ds_train, criterion, optimizer, visualizer, args)
         if epoch >= args.eval_epoch:
             valid_step(epoch, model, ds_valid, criterion, visualizer, args)
-        visualizer.save_fig(epoch, s=args.feats_norm, m=args.margin, dpi=args.dpi)
+        visualizer.save_fig(epoch, m=args.margin, loss_weight=args.loss_weight, dpi=args.dpi)
         schedular.step()
 
 
@@ -85,9 +88,18 @@ def train_step(epoch, model, dataset, criterion, optimizer, visualizer, args):
             labels = labels.to(device, non_blocking=True)
 
         # forward
-        feats = model[0](images)   # [N, 2]
-        logits = model[1](feats, labels)   # [N, C]
-        loss = criterion(logits, labels)
+        feats = model[0](images)  # [N, 2]
+        if args.normalize:
+            norm_feats = F.normalize(feats)
+            logits = model[1](norm_feats)
+            softmax_loss = criterion[0](logits, labels)
+            contrastive_loss = criterion[1](norm_feats, labels) if epoch >= args.break_epoch else 0.0
+            loss = softmax_loss + contrastive_loss
+        else:
+            logits = model[1](feats)  # [N, C]
+            softmax_loss = criterion[0](logits, labels)
+            contrastive_loss = criterion[1](feats, labels) if epoch >= args.break_epoch else 0.0
+            loss = softmax_loss + contrastive_loss
 
         # backward
         optimizer.zero_grad()
@@ -104,7 +116,8 @@ def train_step(epoch, model, dataset, criterion, optimizer, visualizer, args):
         acc = total_correct / ((i + 1) * args.batch_size) * 100
 
         # Log info
-        info_str = "loss: {loss:.4f}, acc: {acc:.1f}% ".format(loss=avg_loss, acc=acc)
+        info_str = "loss: {:.4f}, softmax: {:.4f}, contrastive: {:.4f}, acc: {:.1f}%".format(avg_loss, softmax_loss,
+                                                                                         contrastive_loss, acc)
         progress_bar.set_postfix_str(info_str)
         if (i + 1) % args.log_freq == 0:
             progress_bar.update(args.log_freq)
@@ -130,9 +143,18 @@ def valid_step(epoch, model, dataset, criterion, visualizer, args):
         labels = labels.to(device, non_blocking=True)
 
         # forward
-        feats = model[0](images)
-        logits = model[1](feats, labels)
-        loss = criterion(logits, labels)
+        feats = model[0](images)  # [N, 2]
+        if args.normalize:
+            norm_feats = F.normalize(feats)
+            logits = model[1](norm_feats)
+            softmax_loss = criterion[0](logits, labels)
+            contrastive_loss = criterion[1](norm_feats, labels) if epoch >= args.break_epoch else 0.0
+            loss = softmax_loss + contrastive_loss
+        else:
+            logits = model[1](feats)  # [N, C]
+            softmax_loss = criterion[0](logits, labels)
+            contrastive_loss = criterion[1](feats, labels) if epoch >= args.break_epoch else 0.0
+            loss = softmax_loss + contrastive_loss
 
         # loss
         total_loss += loss.item() / len(dataset)
@@ -144,7 +166,8 @@ def valid_step(epoch, model, dataset, criterion, visualizer, args):
         acc = total_correct / ((i + 1) * args.batch_size) * 100
 
         # Log info
-        info_str = "loss: {loss:.4f}, acc: {acc:.1f}%".format(loss=avg_loss, acc=acc)
+        info_str = "loss: {:.4f}, softmax: {:.4f}, contrastive: {:.4f}, acc: {:.1f}%".format(avg_loss, softmax_loss,
+                                                                                         contrastive_loss, acc)
         progress_bar.set_postfix_str(info_str)
         if i % args.log_freq == 0:
             progress_bar.update(args.log_freq)
@@ -158,5 +181,5 @@ def valid_step(epoch, model, dataset, criterion, visualizer, args):
 
 
 if __name__ == '__main__':
-    args = get_cosface_loss_args()
+    args = get_contrastive_loss_args()
     main(args)

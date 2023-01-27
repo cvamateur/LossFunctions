@@ -2,9 +2,10 @@
 Train MNIST with Original Softmax Loss
 
 Structure:
-    extractor -> nn.Linear -> SoftmaxLoss
+    extractor -> nn.Linear -> SoftmaxLoss + CenterLoss + TripletLoss
 """
 import torch
+import torch.nn.functional as F
 
 from tqdm import tqdm
 from torch.optim import Adam
@@ -15,10 +16,10 @@ from torchvision.transforms import ToTensor, Normalize, Compose
 
 from losses import SoftmaxLoss
 from losses.margin import CenterLoss
+from losses.metric import TripletLoss
 from common.nets import MNIST_Net
-from common.cli_parser import get_center_loss_args
-from common.visualizer import  FeatureVisualizer
-
+from common.cli_parser import get_triplet_center_loss_args
+from common.visualizer import FeatureVisualizer
 
 use_gpu = torch.cuda.is_available()
 device = torch.device("cuda" if use_gpu else "cpu")
@@ -44,23 +45,25 @@ def main(args):
     #################
     # Loss Function
     #################
-    softmax_loss_fn = SoftmaxLoss().to(device)
-    center_loss_fn = CenterLoss(2, 10, args.loss_weight).to(device)
-    criterion = (softmax_loss_fn, center_loss_fn)
+    softmax_fn = SoftmaxLoss().to(device)
+    center_fn = CenterLoss(2, 10).to(device)
+    triplet_fn = TripletLoss(args.margin, args.strategy, args.squared).to(device)
+    criterion = (softmax_fn, center_fn, triplet_fn)
 
     #################
     # Optimizer
     #################
     optimizer = Adam([{"params": extractor.parameters()},
                       {"params": classifier.parameters()},
-                      {"params": softmax_loss_fn.parameters(), "weight_decay": 0}],
+                      {"params": center_fn.parameters(), "weight_decay": 0}],
                      lr=args.lr, weight_decay=args.weight_decay)
     schedular = StepLR(optimizer, args.step_size, args.gamma)
 
     ################
     # Visualizer
     ################
-    visualizer = FeatureVisualizer("CenterLoss", len(ds_train), len(ds_valid), args.batch_size,
+    name = "TripletCenterLoss_norm" if args.normalize else "TripletCenterLoss"
+    visualizer = FeatureVisualizer(name, len(ds_train), len(ds_valid), args.batch_size,
                                    args.eval_epoch, args.vis_freq, args.use_bias, args.dark_theme)
 
     #################
@@ -71,7 +74,7 @@ def main(args):
         train_step(epoch, model, ds_train, criterion, optimizer, visualizer, args)
         if epoch >= args.eval_epoch:
             valid_step(epoch, model, ds_valid, criterion, visualizer, args)
-        visualizer.save_fig(epoch, loss_weight=args.loss_weight, dpi=args.dpi)
+        visualizer.save_fig(epoch, args.dpi, m=args.margin, w_ctr=args.w_ctr, w_trp=args.w_trp, strategy=args.strategy)
         schedular.step()
 
 
@@ -88,11 +91,21 @@ def train_step(epoch, model, dataset, criterion, optimizer, visualizer, args):
             labels = labels.to(device, non_blocking=True)
 
         # forward
-        feats = model[0](images)        # [N, 2]
-        logits = model[1](feats)        # [N, C]
-        softmax_loss = criterion[0](logits, labels)
-        center_loss = criterion[1](feats, labels)
-        loss = softmax_loss + center_loss
+        feats = model[0](images)  # [N, 2]
+        if args.normalize:
+            norm_feats = F.normalize(feats)
+            logits = model[1](norm_feats)
+            softmax_loss = criterion[0](logits, labels)
+            center_loss = criterion[1](norm_feats, labels) * args.w_ctr
+            triplet_loss = criterion[2](norm_feats, labels) if epoch >= args.break_epoch else 0.0
+            triplet_loss = triplet_loss * args.w_trp
+        else:
+            logits = model[1](feats)
+            softmax_loss = criterion[0](logits, labels)
+            center_loss = criterion[1](feats, labels) * args.w_ctr
+            triplet_loss = criterion[2](feats, labels) if epoch >= args.break_epoch else 0.0
+            triplet_loss = triplet_loss * args.w_trp
+        loss = softmax_loss + center_loss + triplet_loss
 
         # backward
         optimizer.zero_grad()
@@ -109,7 +122,8 @@ def train_step(epoch, model, dataset, criterion, optimizer, visualizer, args):
         acc = total_correct / ((i + 1) * args.batch_size) * 100
 
         # Log info
-        info_str = "loss: {:.4f}, softmax: {:.4f}, center: {:.4f}, acc: {:.1f}% ".format(avg_loss, softmax_loss, center_loss, acc)
+        info_str = "loss: {:.4f}, softmax: {:.4f}, center: {:.4f}, triplet: {:.4f}, acc: {:.1f}%".format(
+            avg_loss, softmax_loss, center_loss, triplet_loss, acc)
         progress_bar.set_postfix_str(info_str)
         if (i + 1) % args.log_freq == 0:
             progress_bar.update(args.log_freq)
@@ -135,11 +149,21 @@ def valid_step(epoch, model, dataset, criterion, visualizer, args):
         labels = labels.to(device, non_blocking=True)
 
         # forward
-        feats = model[0](images)
-        logits = model[1](feats)
-        softmax_loss = criterion[0](logits, labels)
-        center_loss = criterion[1](feats, labels)
-        loss = softmax_loss + center_loss
+        feats = model[0](images)  # [N, 2]
+        if args.normalize:
+            norm_feats = F.normalize(feats)
+            logits = model[1](norm_feats)
+            softmax_loss = criterion[0](logits, labels)
+            center_loss = criterion[1](norm_feats, labels) * args.w_ctr
+            triplet_loss = criterion[2](norm_feats, labels) if epoch >= args.break_epoch else 0.0
+            triplet_loss = triplet_loss * args.w_trp
+        else:
+            logits = model[1](feats)
+            softmax_loss = criterion[0](logits, labels)
+            center_loss = criterion[1](feats, labels) * args.w_ctr
+            triplet_loss = criterion[2](feats, labels) if epoch >= args.break_epoch else 0.0
+            triplet_loss = triplet_loss * args.w_trp
+        loss = softmax_loss + center_loss + triplet_loss
 
         # loss
         total_loss += loss.item() / len(dataset)
@@ -151,7 +175,8 @@ def valid_step(epoch, model, dataset, criterion, visualizer, args):
         acc = total_correct / ((i + 1) * args.batch_size) * 100
 
         # Log info
-        info_str = "loss: {:.4f}, softmax: {:.4f}, center: {:.4f}, acc: {:.1f}% ".format(avg_loss, softmax_loss, center_loss, acc)
+        info_str = "loss: {:.4f}, softmax: {:.4f}, center: {:.4f}, triplet: {:.4f}, acc: {:.1f}%".format(
+            avg_loss, softmax_loss, center_loss, triplet_loss, acc)
         progress_bar.set_postfix_str(info_str)
         if i % args.log_freq == 0:
             progress_bar.update(args.log_freq)
@@ -165,5 +190,5 @@ def valid_step(epoch, model, dataset, criterion, visualizer, args):
 
 
 if __name__ == '__main__':
-    args = get_center_loss_args()
+    args = get_triplet_center_loss_args()
     main(args)

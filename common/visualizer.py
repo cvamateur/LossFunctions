@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 class FeatureVisualizer(object):
     """
-    Feature Visualizer that record train and validation features at
+    Feature Visualizer that record training and validation features at
     the same time.
     """
     FEAT_COLORS = list(mc.TABLEAU_COLORS.values())

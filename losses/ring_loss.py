@@ -22,16 +22,15 @@ class RingLoss(nn.Module):
     >> loss.backward()
     """
 
-    def __init__(self, r: float = 1.0, loss_weight=1.0, reduction="mean"):
+    def __init__(self, r: float = 1.0, reduction="mean"):
         assert reduction in ["mean", "sum", "none"], f"reduction must be 'mean', 'sum' or 'none'"
         super(RingLoss, self).__init__()
         self._reduction = reduction
-        self._w = loss_weight
         self.R = nn.Parameter(torch.tensor([r], dtype=torch.float32))
 
     def forward(self, feats):
         feats_norm = LA.norm(feats, dim=1).clip(min=1e-8)
-        losses = torch.square(feats_norm - self.R).mul(0.5 * self._w)
+        losses = torch.square(feats_norm - self.R).mul(0.5)
         if self._reduction == "mean":
             return torch.mean(losses)
         elif self._reduction == "sum":

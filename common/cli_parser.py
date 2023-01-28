@@ -135,7 +135,7 @@ def get_triplet_center_loss_args():
 
 def get_tripletcenter_loss_args():
     parser = get_common_parser("MNIST - TripletCenter Loss")
-    parser.add_argument("-m", "--margin", type=float, default=15.0, help="Margin in loss")
+    parser.add_argument("-m", "--margin", type=float, default=50.0, help="Margin in loss")
     parser.add_argument("--loss-weight", type=float, default=1.0, help="Loss weight for TripletCenter Loss")
     return parser.parse_args()
 

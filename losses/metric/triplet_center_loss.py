@@ -17,14 +17,30 @@ class TripletCenterLoss(nn.Module):
         self.centers = nn.Parameter(torch.zeros([num_classes, feat_dims], dtype=torch.float32))
         self.register_buffer("margin", torch.tensor([margin], dtype=torch.float32))
 
-
-        self._forward_impl =self._forward_impl_functional
+        # self._forward_impl =self._forward_impl_functional
 
     def _forward_impl_functional(self, feats, targets):
         return _TripletCenterLossFunc.apply(feats, self.centers, targets, self.margin)
 
     def _forward_impl(self, feats, targets):
-        ...
+        # Difference of features with all centers
+        diff_mat = feats.unsqueeze(1) - self.centers  # [B, C, 2]
+        dist_mat = 0.5 * diff_mat.square().sum(dim=2)  # [B, C]
+
+        # Get distances of each feature with its center: D(f_i, c_yi)
+        target_diff = dist_mat.gather(1, targets.view(-1, 1))  # [B, 1]
+
+        # In order to get minimum distance, here add the maximum distance at target column
+        max_dist = dist_mat.max(dim=1, keepdim=True).values  # [B, 1]
+        dist_mat = dist_mat.scatter_add(1, targets.view(-1, 1), max_dist)
+
+        # Get the minimum distances min( D(f_i, c_j) ),  j != y_i
+        min_other_diff, min_idxs = dist_mat.min(dim=1)  # [B, 1]
+
+        # Triplet-Center Loss
+        losses = target_diff.squeeze() + self.margin - min_other_diff
+        losses = torch.clamp(losses, min=0.0)
+        return torch.mean(losses)
 
     def forward(self, feats, targets):
         return self._forward_impl(feats, targets)
@@ -90,5 +106,5 @@ class _TripletCenterLossFunc(Function):
         d_centers_push.div_(counts.view(-1, 1))
 
         # Final dL/dc
-        d_centers = grad_outputs * (d_centers_pull - d_centers_push) / batch_size
+        d_centers = (d_centers_pull - d_centers_push) / batch_size
         return d_feats, d_centers, None, None

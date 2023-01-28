@@ -62,7 +62,7 @@ def main(args):
     ################
     # Visualizer
     ################
-    name = "TripletCenterLoss_norm" if args.normalize else "TripletCenterLoss"
+    name = "Triplet_CenterLoss_norm" if args.normalize else "Triplet_CenterLoss"
     visualizer = FeatureVisualizer(name, len(ds_train), len(ds_valid), args.batch_size,
                                    args.eval_epoch, args.vis_freq, args.use_bias, args.dark_theme)
 

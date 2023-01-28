@@ -97,7 +97,7 @@ def get_cosface_loss_args():
 def get_arcface_loss_args():
     parser = get_common_parser("MNIST - ArcFace Loss")
     parser.add_argument("-s", "--feats-norm", type=float, default=32.0, help="Squared L2-Norm of features")
-    parser.add_argument("-m", "--margin", type=float, default=0.5, help="Additive angular margin.")
+    parser.add_argument("-m", "--margin", type=float, default=0.1, help="Additive angular margin.")
     return parser.parse_args()
 
 

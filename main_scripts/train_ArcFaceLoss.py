@@ -19,6 +19,7 @@ from common.cli_parser import get_arcface_loss_args
 from common.visualizer import FeatureVisualizer
 from common.nets import MNIST_Net
 
+torch.autograd.set_detect_anomaly(False)
 use_gpu = torch.cuda.is_available()
 device = torch.device("cuda" if use_gpu else "cpu")
 
@@ -38,6 +39,7 @@ def main(args):
     # Model
     ################
     extractor = MNIST_Net(in_channels=1, out_channels=2).to(device)
+    # classifier = ArcMarginProduct(2, 10, args.feats_norm, args.margin).to(device)
     classifier = ArcFaceLinear(2, 10, args.feats_norm, args.margin).to(device)
 
     #################
@@ -51,9 +53,6 @@ def main(args):
     optimizer = Adam([{"params": extractor.parameters()},
                       {"params": classifier.parameters()}],
                      lr=args.lr, weight_decay=args.weight_decay)
-    # optimizer = SGD([{"params": extractor.parameters()},
-    #                  {"params": classifier.parameters()}],
-    #                 lr=args.lr, weight_decay=args.weight_decay, momentum=0.9)
     schedular = StepLR(optimizer, args.step_size, args.gamma)
 
     ################
@@ -70,7 +69,7 @@ def main(args):
         train_step(epoch, model, ds_train, criterion, optimizer, visualizer, args)
         if epoch >= args.eval_epoch:
             valid_step(epoch, model, ds_valid, criterion, visualizer, args)
-        visualizer.save_fig(epoch, s=args.feats_norm, m=args.margin, dpi=args.dpi)
+        visualizer.save_fig(epoch, args.dpi, s=args.feats_norm, m=args.margin)
         schedular.step()
 
 

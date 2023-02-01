@@ -37,7 +37,6 @@ class ContrastiveLoss(nn.Module):
         return loss
 
 
-
 def _calc_distance_matrix(embeddings, squared: bool = True):
     # Dot product between all embeddings
     dot_product = torch.matmul(embeddings, embeddings.T)  # [B, B]

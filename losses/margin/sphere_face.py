@@ -87,7 +87,6 @@ class L_SoftmaxLinear(nn.Module):
         return k
 
 
-
 class SphereFaceLinear(L_SoftmaxLinear):
     """
     Refer to paper [SphereFace: Deep Hypersphere Embedding for Face Recognition]

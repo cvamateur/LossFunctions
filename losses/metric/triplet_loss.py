@@ -145,7 +145,7 @@ def _get_anc_pos_and_neg_mask(labels):
 
     # labels[i] != labels[j]
     lbl_equal = torch.eq(labels.unsqueeze(0), labels.unsqueeze(1))
-    lbl_not_equal = torch.logical_not(lbl_equal)
-    mask_anc_pos = idxs_not_equal & lbl_not_equal
-    mask_anc_neg = lbl_not_equal
+
+    mask_anc_pos = torch.logical_and(lbl_equal, idxs_not_equal)
+    mask_anc_neg = torch.logical_not(lbl_equal)
     return mask_anc_pos, mask_anc_neg

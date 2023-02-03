@@ -22,23 +22,23 @@ class L_SoftmaxLinear(nn.Module):
 
     def __init__(self, in_features: int, out_features: int, margin: int = 3):
         super().__init__()
-        dtype, device = torch.float32, torch.device("cpu")
         self.bias = None
-        self.weight = nn.Parameter(torch.randn([out_features, in_features], dtype=dtype, device=device))
+        self.weight = nn.Parameter(torch.randn([out_features, in_features], dtype=torch.float32))
         nn.init.xavier_normal_(self.weight)
 
         # binomial coefficients: +C_m^0, -C_m^2, +C_m^4, ...
-        Cm_2n = torch.tensor([math.comb(margin, k) for k in range(0, margin + 1, 2)], dtype=dtype, device=device)
+        Cm_2n = torch.tensor([math.comb(margin, k) for k in range(0, margin + 1, 2)], dtype=torch.float32)
         Cm_2n[1::2].mul_(-1.0)
-        pow_cos = torch.tensor([margin - k for k in range(0, margin + 1, 2)], dtype=dtype, device=device)
-        pow_sin2 = torch.tensor([k for k in range(1 + margin // 2)], dtype=dtype, device=device)
-        self.register_buffer("margin", torch.tensor([margin], dtype=dtype, device=device))
+        pow_cos = torch.tensor([margin - k for k in range(0, margin + 1, 2)], dtype=torch.float32)
+        pow_sin2 = torch.tensor([k for k in range(1 + margin // 2)], dtype=torch.float32)
+        self.register_buffer("margin", torch.tensor([margin], dtype=torch.float32))
         self.register_buffer("Cm_2n", Cm_2n)
         self.register_buffer("pow_cos", pow_cos)
         self.register_buffer("pow_sin2", pow_sin2)
 
         # Coefficient of annealing algorithm
-        self._beta = 100
+        self._beta = 1000
+        self._factor = 0.9999
 
     def _fc_impl(self, feats):
         logits = F.linear(feats, self.weight)
@@ -66,8 +66,10 @@ class L_SoftmaxLinear(nn.Module):
 
         # Equation 8 in paper
         logits_of_target_new = wf * (torch.pow(-1.0, k) * cos_m_theta - 2.0 * k)
+
+        # Annealing
         logits[indices, targets] = (logits_of_target_new + self._beta * logits_of_target) / (1 + self._beta)
-        self._beta *= 0.99
+        self._beta *= self._factor
         return logits
 
     def calculate_cos_m_theta(self, cos_theta):
@@ -103,3 +105,27 @@ class SphereFaceLinear(L_SoftmaxLinear):
 
 # Aliases
 A_SoftmaxLinear = SphereFaceLinear
+
+
+if __name__ == '__main__':
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    scale = 0.9999
+    init_beta = 1000
+    beta = init_beta
+
+    epoch = 50
+    steps_per_epoch = 453324 // 128
+    total_steps = epoch * steps_per_epoch
+
+    beta_list = []
+    for i in range(total_steps):
+        beta_list.append(beta)
+        beta *= scale
+
+    beta_list = np.array(beta_list)
+    epoch_list = np.arange(len(beta_list)) / steps_per_epoch
+    _, ax = plt.subplots()
+    ax.plot(epoch_list, beta_list)
+    plt.show()

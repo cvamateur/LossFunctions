@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-
 class NormFaceLinear(nn.Module):
     """
     Refer to paper [NormFace: L2 Hypersphere Embedding for Face Verification]

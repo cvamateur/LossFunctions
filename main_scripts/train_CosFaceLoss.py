@@ -2,7 +2,7 @@
 Train MNIST with AM-Softmax Loss or LMCL(CosFace)
 
 Structure:
-    extractor -> A-SoftmaxLinear -> SoftmaxLoss
+    extractor -> CosFaceLinear -> SoftmaxLoss
 """
 import torch
 

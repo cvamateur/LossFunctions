@@ -1,5 +1,5 @@
 """
-Train MNIST with Original Softmax Loss
+Train MNIST with Focal Loss
 
 Structure:
     extractor -> nn.Linear -> SoftmaxLoss

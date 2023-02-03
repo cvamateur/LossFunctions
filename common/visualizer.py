@@ -2,7 +2,7 @@ import os
 import numpy as np
 import matplotlib.colors as mc
 import matplotlib.pyplot as plt
-
+import torch
 
 
 class FeatureVisualizer(object):
@@ -41,6 +41,8 @@ class FeatureVisualizer(object):
 
     def record(self, epoch, features, labels):
         if epoch == self.next_epoch:
+            features = features.detach().to("cpu").numpy()
+            labels = labels.detach().to("cpu").numpy()
             i, b = self._i, self._b
             self.features[i * b: (i + 1) * b] = features
             self.labels[i * b:(i + 1) * b] = labels

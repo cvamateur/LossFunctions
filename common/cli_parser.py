@@ -111,7 +111,7 @@ def get_triplet_loss_args():
     parser = get_common_parser("MNIST - Triplet Loss")
     parser.add_argument("-m", "--margin", type=float, default=0.25, help="Margin in Triplet-Loss")
     parser.add_argument("--strategy", type=str, default="batch_hard", help="'batch_hard' or 'batch_all'")
-    parser.add_argument("--loss-weight", type=float, default=0.01, help="Loss weight for Triplet-Loss")
+    parser.add_argument("--loss-weight", type=float, default=0.1, help="Loss weight for Triplet-Loss")
     parser.add_argument("--break-epoch", type=int, default=0, help="Epoch to incorporate Triplet-Loss")
     parser.add_argument("--normalize", action="store_true", help="Normalize features before loss functions")
     parser.add_argument("--sqrt-dist", dest="squared", action="store_false", help="Use squared distances.")
@@ -125,18 +125,11 @@ def get_triplet_center_loss_args():
                         help="Strategy of sampling triplets, must be 'batch_hard' or 'batch_all'")
     parser.add_argument("--center-loss-weight", dest="w_ctr", type=float, default=0.1,
                         help="Loss weight for CenterLoss")
-    parser.add_argument("--triplet-loss-weight", dest="w_trp", type=float, default=0.01,
+    parser.add_argument("--triplet-loss-weight", dest="w_trp", type=float, default=0.1,
                         help="Loss weight for TripletLoss_norm")
     parser.add_argument("--break-epoch", type=int, default=0, help="Epoch to incorporate Triplet-Loss")
     parser.add_argument("--normalize", action="store_true", help="Normalize features before loss functions")
     parser.add_argument("--sqrt-dist", dest="squared", action="store_false", help="Use squared distances.")
-    return parser.parse_args()
-
-
-def get_tripletcenter_loss_args():
-    parser = get_common_parser("MNIST - TripletCenter Loss")
-    parser.add_argument("-m", "--margin", type=float, default=50.0, help="Margin in loss")
-    parser.add_argument("--loss-weight", type=float, default=1.0, help="Loss weight for TripletCenter Loss")
     return parser.parse_args()
 
 

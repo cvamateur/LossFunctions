@@ -115,8 +115,6 @@ def train_step(epoch, model, dataset, criterion, optimizer, visualizer, args):
             progress_bar.update(args.log_freq)
 
         # Record Features
-        feats = feats.detach().to("cpu").numpy()
-        preds = preds.detach().to("cpu").numpy()
         visualizer.record(epoch, feats, preds)
 
     progress_bar.update(len(dataset) - progress_bar.n)
@@ -157,8 +155,6 @@ def valid_step(epoch, model, dataset, criterion, visualizer, args):
             progress_bar.update(args.log_freq)
 
         # Record Features
-        feats = feats.to("cpu").numpy()
-        preds = preds.to("cpu").numpy()
         visualizer.record(epoch, feats, preds)
 
     progress_bar.update(len(dataset) - progress_bar.n)
